@@ -131,7 +131,8 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
   
   num.sons.check = matrix(0,2,iter) #check the number of offspring recruited in the population
   
-  test.pop = list() # list of area matrix
+  test.pop = list() # list of area matrix for testing
+  
   harvest = rep(0,iter)
   
   ###########
@@ -146,7 +147,7 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
   
   col.freq = 2 # counter for column number when checking for frequencies of alleles at different time steps  
   
-  a = 0
+  a = 0 ## counter for the creation of matrix of allelic values, starts from 0
   
   ##################### START FOR TIME LOOP ########################
   
@@ -220,9 +221,7 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
       #allelic frequency at time 50 and frequency at the last year to be divided
       #by 50 before extinction
       
-      heteroz.mat = all.freq100[,(dim(all.freq100)[2]-1)]   #matrix for heterozigosity (no mutants included)
-      
-      
+      heteroz.mat = all.freq100[,(dim(all.freq100)[2]-1)]   #matrix for heterozigosity 
       
     }
     
@@ -235,16 +234,13 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
       
       
       heter_mat_year[zz,i] = length(area.pop[area.pop==alleles.mat[zz]])/(2*length(area.pop[1,area.pop[1,]!=0])) #divide the number of alleles in the 
-      #population by 2 times the number of individuals alive
-      #print(i)																							# (diploid organism)
+      #population by 2 times the number of individuals alive because it is a diploid organism
     }
     
     
     
-    ##### close before and after climate change #######
     
-    
-    ##### compute mean age of ocean salmon ######
+    ##### compute mean age of ocean salmon, only 2 years old and older ######
     
     mean.age.who = which(area.pop[age.pos,]>=2 & area.pop[1,]!=0)
     
@@ -262,7 +258,7 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
     ####vector of optimum and mean and sd of phenotype in the population ######
     
     
-    mediaphen[i] = mean(area.pop[pheno.pos,area.pop[pheno.pos,]!=0])
+    mediaphen[i] = mean(area.pop[pheno.pos,area.pop[pheno.pos,]!=0]) # only alive individuals have value at row pheno.pos > 0
     
     sdphen[i] = sd(area.pop[pheno.pos,area.pop[pheno.pos,]!=0])
     
@@ -271,13 +267,13 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
     #### close vector of optimum and mean and sd of phenotype in the population ######
   
     
-    addgenvar[i] <- var(area.pop[pheno.pos,area.pop[pheno.pos,]!=0])
-    addgenmean[i] <- mean(area.pop[pheno.pos,area.pop[pheno.pos,]!=0])
+    addgenvar[i] <- var(area.pop[pheno.pos,area.pop[pheno.pos,]!=0]) # variance of phenotypes
+    addgenmean[i] <- mean(area.pop[pheno.pos,area.pop[pheno.pos,]!=0]) # mean of phenotypes
     phenomean[i] <- mean(pheno[area.pop[pheno.pos,]!=0])
     varphen[i] = var(pheno[pheno!=0])
     
     
-    vettad_pre[i] = length(area.pop[pheno.pos,area.pop[pheno.pos,]!=0]) ########population size pre_selection
+    vettad_pre[i] = length(area.pop[pheno.pos,area.pop[pheno.pos,]!=0]) ######## population size pre_selection
     
     ############### MEAN AND SD OF AGE #####
     
@@ -292,7 +288,7 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
   
     who = which(area.pop[pheno.pos,]!=0) # where the individuals are (because empty columns have zero in first position) 
 
-    vettad_pre[i] = length(area.pop[1,area.pop[pheno.pos,]!=0]) ########population size pre_mortality including juveniles
+    vettad_pre[i] = length(area.pop[pheno.pos,(area.pop[pheno.pos,]!=0 & area.pop[age.pos,]>=2)]) ######## population size in the ocean pre_mortality including, only 2 years old and older
     
     ## mortality is sequential, natural and then harvest
     
@@ -321,7 +317,7 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
     harvest[i] = empty_a - empty_b
     ####
     
-    vettad[i] = length(area.pop[pheno.pos,(area.pop[pheno.pos,]!=0 & area.pop[age.pos,]>=2)])
+    vettad[i] = length(area.pop[pheno.pos,(area.pop[pheno.pos,]!=0 & area.pop[age.pos,]>=2)]) # populations size in the ocean post-natural mortality and post-harvest
     
     ########population size post_mortality includig juveniles  
     
