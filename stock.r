@@ -31,7 +31,7 @@ theme.stock =  theme(plot.title = element_text(lineheight=.8, face="bold", size 
                    plot.margin = unit(c(1,2,1,1), "cm"),
                    axis.title.x = element_text(size=size.label.x,vjust=-80),
                    axis.text.x  = element_text(size=size.text.x, vjust = 0.5),
-                   axis.title.y = element_text(size=size.label.x, vjust = 2),
+                   axis.title.y = element_text(size=size.label.x, vjust = 50),
                    axis.text.y  = element_text(size=size.text.x),
                    legend.title = element_blank(),
                    legend.text = element_text(size = size.legend.text),
@@ -50,9 +50,7 @@ for (i in 1:length(stock)) {
 sons[i] = a*stock[i]*exp(-a*(stock[i]/(Rp*exp(1))))
 }
 
-test_df = 
-ggplot(data = test_df, aes(x = stock, y = sons)) +
-  geom_point()
+
 
 
 ## create the data.frame
@@ -69,4 +67,4 @@ stock_gg = ggplot(stock_df, aes(x = stock, y = sons)) +
   labs(y = "Recruits") +
   labs(x = "Stock") 
 
-stock_gg
+plot(stock_gg)

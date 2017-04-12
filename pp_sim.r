@@ -328,6 +328,7 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
     ####################   REPRODUCTION ##########################
     
     ### 
+    
     area.pop[matur.pos,] = 0  # set 0 maturity for every fish
     
     for (r_rep in 1:length(mat_prop)) {
@@ -348,6 +349,7 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
     #matsons = rbind(rep(100,Rp_stock*2),matrix(0,(length_prop+(num.loci*2)-1),Rp_stock*2))# define with 100s the first and then delete the remaining 100s 
     
     matsons = matrix(0,(length_prop+(num.loci*2)),Rp_stock*2)
+    
     matsons[1,] = 100
     
     #when manipulating the vector
@@ -363,9 +365,9 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
 
     # print(recruit)
     
-    escapement[i] = stock
+    escapement[i] = stock  # stock = escapement = mature fish 
 
-    test.pop[[i]] = area.pop
+    test.pop[[i]] = area.pop  # save area.pop matrix, mostly for testing
     
     
     ## Sexual reproduction
@@ -373,14 +375,14 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
     
     gene.from.parents = rbind(rep(100,Rp_stock*2),matrix(0,(num.loci*2*2)-1,Rp_stock*2))
     
-    number.of.sons = rep(100,S*2)
+    number.of.sons = rep(100,Rp_stock*2)
     
-    if (recruit >1 & stock >=2)   { #open if for reproduction
+    if (recruit >1 & stock >=2)   { #open if for reproduction, that is there is at least one recruit
       
       
       ######### open control for odd number of reproductors
       
-      if (length(reproductor)%%2 != 0) {		#open and close control for odd number of reproductors, since I assume that a female mates with only one male
+      if (length(reproductor)%%2 != 0) {		#open and close control for odd number of reproductors, since I assume that a female mates with only one male, if there is odd number of reproductors, I delete one of them
         
         reproductor <- reproductor[-sample(1:length(reproductor),1)]
       }  # close for odd number of reproductors 
@@ -389,9 +391,9 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
       ############## close control for odd number of reproductors #########
       
       repro.matrix <- matrix(sample(reproductor,length(reproductor)),2,length(reproductor)/2) 
-      ## produce the matrix of reproductors, each column is a couple 
+      ## produce the matrix of reproductors, each column is a couple. There is no male/female, but it could done by adding sex and change the assignment of mating pairs
       
-      ## only 20% of pairs reproduce
+      ## only 20% of pairs reproduce, typical for salmonids
       
       if(length(reproductor) > 5) { ## just by chance it can happen that when numbers are low, we then have zero reproductors
       who_repr = rbern(n = length(reproductor)/2, prob = 0.2) 
@@ -404,10 +406,10 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
       if (sum(rel_repr) == 0) {# at least 2 reproduce
         rel_repr[sample(1:length(rel_repr),1)] = 1
       }
-      # print(ncol(repro.matrix))
+      
       sons_rel = round((rel_repr/sum(rel_repr)) * recruit) # number of recruit per pair
       # at least one fish is produced
-      # print(sons_rel)
+      
       ######### begin loop for reproductors ###########
       
       
@@ -420,20 +422,14 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
         if(nsonscouple>0) {  # open if for couples with at least one offspring
           
           
-          
-          #matsons[sector,(nsonscont+1):(nsonscont + nsonscouple)] = sector.from.parents #assign the sector to offspring
-          
-          
-          #nsonscont = nsonscont + nsonscouple
-          
           gene.from.father = matrix(0,num.loci*2,nsonscouple)  # alleles coming from father (empty) used in case of recombination
           gene.from.mother = matrix(0,num.loci*2,nsonscouple) # alleles coming from mother (empty) used in case of recombination
           
           gene.sons = matrix(0,num.loci*2,nsonscouple)  #create a matrix with cols = number of offspring of the couple and rows = num.loci * 2
           
-          ####### open recombination####
-          #close for recombination = 0
-          if (recomb==0) {  #whether to recombine or not
+          ####### open options for recombination####
+          if (recomb==0) {  # no recombination
+            
             for (aa in 1:nsonscouple) {   #cicle for number of offspring
               
               sampleseq = sample(c(1,2),2,replace=T)    #draw the chromosome to be passed to offspring (First for father, second for mother)
@@ -445,7 +441,7 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
               else if (sampleseq[2]==2) {gene.sons[(num.loci+1):(num.loci*2),aa] = area.pop[schrom,repro.matrix[2,rr]]} # if 2 for mother I pick the second chromosome
               
             }
-          }  else if (recomb==1) { #### recombination ==1
+          }  else if (recomb==1) { #### full recombination
             
             
             for (aa in 1:nsonscouple) {   #cicle for number of offspring
@@ -493,18 +489,17 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
       
     } ### close for if (length(reproductor) >1)
     
-    area.pop[,reproductor] = 0  ## all escapees die
+    area.pop[,reproductor] = 0  ## all mature fish die (semelparity). reproductors is a vector of columns in the area.pop matrix
     
-    empty = which(area.pop[pheno.pos,]==0)  ### identify the available spots for newborns in the matrix
+    empty = which(area.pop[pheno.pos,]==0)  ### identify the available spots for newborns in the matrix. If there are more recruits than empty spots. some recruits die (the number of columns in the matrix is basically the carrying capacity of the system)
   
     
     ##### open if there are offspring produced ########
     
     
-    if (length(matsons[1,matsons[1,]!=100]) >1) ##if there are offspring produced
+    if (length(matsons[1,matsons[1,]!=100]) >1) ##if there are offspring produced, those have value in pheno.pos row > 0
     { 
       
-      #print(1.5)
       matsons = matsons[,matsons[1,]!=100]  ## delete the empty places in matsons
       pheno_parents = pheno_parents[pheno_parents!=100]  ##delete the empty places in pheno_parents
       number.of.sons = number.of.sons[number.of.sons!=100]  ##delete the empty places in number.of.sons
@@ -554,21 +549,21 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
         
         
         
-        for (hh in 1:length(pheno_parents_unique)) {
-          off.mean[hh] = mean(vettpheno[pheno_parents == pheno_parents_unique[hh]]) 
-        
-        sons.for.couple[hh] = min(number.of.sons[pheno_parents == pheno_parents_unique[hh]])
-        
-        
-        if (i==50) {
-          
-          check.parents  = rbind(gene.from.parents,matsons)
-          
-          
-        }
-        
-        
-        }
+        # for (hh in 1:length(pheno_parents_unique)) {
+        #   off.mean[hh] = mean(vettpheno[pheno_parents == pheno_parents_unique[hh]]) 
+        # 
+        # sons.for.couple[hh] = min(number.of.sons[pheno_parents == pheno_parents_unique[hh]])
+        # 
+        # 
+        # if (i==50) {
+        #   
+        #   check.parents  = rbind(gene.from.parents,matsons)
+        #   
+        #   
+        # }
+        # 
+        # 
+        # }
         
         
       
@@ -591,7 +586,7 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
         
         pheno[empty]<-vettpheno
         
-      } else if(length(empty)<= ncol(matsons)){
+      } else if(length(empty)<= ncol(matsons)){ # this case if there are more recruits than empty spots in the matrix
         
         
         
@@ -631,7 +626,7 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
     }
     
       
-  year = i  # useful for plot  
+  year = i  # counter for plot, I cannot use iter because year < iter if the population went extinct   
     
     ####################   CLOSE REPRODUCTION ##########################
     
@@ -701,10 +696,11 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
   
 ## create the data.frame
   
-  pop_df = data.frame(abund = c(vettad,escapement,harvest), type = rep(c("ocean","escap","harvest"),each = year), year = 1:year) %>%
+  pop_df = data.frame(abund = c(vettad[1:year],escapement[1:year],harvest[1:year]), type = rep(c("ocean","escap","harvest"),each = year), year = 1:year) %>%
     filter(.,year>=10)
   
   
+  if (year > 10) {
   pop_gg = ggplot(pop_df, aes(x = year, y = abund, group = type, shape = type, linetype = type)) +
     geom_point(alpha = 0.4) +
     geom_line() +
@@ -713,7 +709,7 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
     scale_y_continuous(limits = c(0,(max(pop_df$abund) + 1000))) +
     scale_x_continuous(limits = c(0,year+2)) +
     labs(y = "#") +
-    labs(x = "Year") 
+    labs(x = "Year") } else {pop_gg = "Not enough simulation years"} 
   
   
   ### change all.freq100 to data.frame #####
