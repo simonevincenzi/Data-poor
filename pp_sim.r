@@ -14,8 +14,7 @@ library(MCMCpack)
 ################################
 
 
-pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
-                         plotorno = 1,num.alleles = 2,sd.alleles = 0.1,recomb=1, mort_r = 0.2,mort_r_harv = 0.27, mat_prop = c(0.05,0.5,0.93,1), age_repr = c(2,3,4,5),alpha_stock = 50,Rp_stock = 5000)
+pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci = 5, num.alleles = 2,sd.alleles = 0.1,recomb = 1, mort_r = 0.2,mort_r_harv = 0.27, mat_prop = c(0.05,0.5,0.93,1), age_repr = c(2,3,4,5),alpha_stock = 50,Rp_stock = 5000)
   
   # S = maximum (and initial number of individuals in the population)
   # N = not used
@@ -709,7 +708,7 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci =5,
     scale_y_continuous(limits = c(0,(max(pop_df$abund) + 1000))) +
     scale_x_continuous(limits = c(0,year+2)) +
     labs(y = "#") +
-    labs(x = "Year") } else {pop_gg = "Not enough simulation years"} 
+    labs(x = "Year") } else {pop_gg = "Not enough simulation years for plot (must be > 10)"} 
   
   
   ### change all.freq100 to data.frame #####
