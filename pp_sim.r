@@ -14,7 +14,7 @@ library(MCMCpack)
 ################################
 
 
-pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci = 5, num.alleles = 2,sd.alleles = 0.1,recomb = 1, mort_r = 0.2,mort_r_harv = 0.27, mat_prop = c(0.05,0.5,0.93,1), age_repr = c(2,3,4,5),alpha_stock = 50,Rp_stock = 5000)
+pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci = 5, num.alleles = 2,sd.alleles = 0.1,recomb = 1, mort_r = 0.2,mort_r_harv = 0.27, mat_prop = c(0.05,0.5,0.93,1), age_repr = c(2,3,4,5),alpha_stock = 50,Rp_stock = 5000, L_inf = 3750, k_vb = 0.057, t0_vb = -0.21, alpha_w = 1.44, beta_w = 3.12, sd_e = 0.2, var.env = 1, sex_repro = 0)
   
   # S = maximum (and initial number of individuals in the population)
   # N = not used
@@ -55,8 +55,15 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci = 5, num.alleles = 
   pheno.pos = 1  # this means that the first row is the phenotype of the individuals
   age.pos = 2  # second row is the age of the individual
   matur.pos = 3 # third row is maturity status
+  linf.pos = 4
+  k.pos = 5
+  t0.pos = 6
+  size.pos = 7 # length of fish
+  weight.pos = 8 
   
-  length_prop = 3 #  length of entities of individual vector excluding loci (phenotipic value, age, maturity status are the top rows)
+  length_prop = 8 #  length of entities of individual vector excluding loci (phenotipic value, age, maturity status, and size are the top rows)
+  
+  
   
   heteroz.mat = matrix(0,num.loci*num.alleles,(iter%/%50))  ##### define the matrix for heterozigosyis, same as all.freq100 but with a col less
   
@@ -71,10 +78,19 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci = 5, num.alleles = 
   
   ## define initial ages for the S individuals in the population at time = 1
   
-  initial_ages = round(runif(S,min = 0, max = 5))
-  
+  # initial_ages = round(runif(S,min = 0, max = 5))
+  initial_ages = sample(x = 1:5, size = S,replace = T)
   
   area.pop[age.pos,] = initial_ages # assign ages to individuals
+  
+  area.pop[linf.pos,] = rnorm(n = ncol(area.pop), mean = L_inf, sd = L_inf/3)
+  area.pop[k.pos,] = rnorm(n = ncol(area.pop), mean = k_vb, sd = k_vb/3)
+  area.pop[t0.pos,] = rnorm(n = ncol(area.pop), mean = t0_vb, sd = -t0_vb/3)
+
+
+  
+  
+  
   
   #####CREATE THE MATRIX OF ALLELES IN THE POPULATION##########
   
@@ -110,13 +126,24 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci = 5, num.alleles = 
   pheno = area.pop[pheno.pos,] + rnorm(ncol(area.pop),0,sqrt(var.env)) 
   # phenotypic value = genotypic value + environmental deviate from N(0,sqrt(var.env)) (all stored in pheno)
   
+  ### assign length and weight at age based on von Bertalanffy's growth parameters ####
+  
+  area.pop[size.pos,which(area.pop[pheno.pos,]!=0)] = round(sapply(which(area.pop[pheno.pos,]!=0), function(x) {
+    area.pop[size.pos,x] = area.pop[linf.pos,x] * (1 - exp(-area.pop[k.pos,x]*(area.pop[age.pos,x]-area.pop[t0.pos,x])))
+  }))
+  
+  area.pop[weight.pos,which(area.pop[pheno.pos,]!=0)] = sapply(which(area.pop[pheno.pos,]!=0), function(x) {
+    area.pop[weight.pos,x] = alpha_w * 10^(-8) * area.pop[size.pos,x]^(beta_w)
+  })
+  
   
   #####create vectors and matrix for later use
   mediaphen = rep(0,iter) # vector with mean of the phenotype (one value each year)
   sdphen = rep(0,iter)  # vector with standard deviation of the phenotype (one value each year)
   mean.age = rep(0,iter) # vector with mean age at each time step
   recruitment = rep(0,iter) # vector with escapement for each year
-  escapement = rep(0,iter) # vector of escapement 
+  escapement_real = rep(0,iter) # vector of escapement (real)
+  escapement_obs = rep(0,iter) # vector of escapement (observed)
   
   vettad = rep(0,iter)    #######population size post_mortality at each time step
   vettad_pre = rep(0,iter)  ###### population size pre_mortality at each time step
@@ -132,7 +159,11 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci = 5, num.alleles = 
   
   test.pop = list() # list of area matrix for testing
   
-  harvest = rep(0,iter)
+  harvest = rep(0,iter) # harvest in numbers of individuals 
+  
+  harvest_mean_size = rep(0,iter) # mean size of harvested fish 
+  harvest_total_weight = rep(0,iter) # total weight of harvested fish 
+  harvest_mean_age = rep(0,iter) # mean age of harvested fish
   
   ###########
   
@@ -250,6 +281,16 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci = 5, num.alleles = 
     
     if (i>1) {
       area.pop[age.pos,area.pop[pheno.pos,]!=0] = area.pop[age.pos,area.pop[pheno.pos,]!=0] + 1 
+      
+     ########### assign length and weight ###########
+      
+       area.pop[size.pos,which(area.pop[pheno.pos,]!=0)] = round(sapply(which(area.pop[pheno.pos,]!=0), function(x) {
+        area.pop[size.pos,x] = area.pop[linf.pos,x] * (1 - exp(-area.pop[k.pos,x]*(area.pop[age.pos,x]-area.pop[t0.pos,x])))
+      }))
+      
+      area.pop[weight.pos,which(area.pop[pheno.pos,]!=0)] = sapply(which(area.pop[pheno.pos,]!=0), function(x) {
+        area.pop[weight.pos,x] = alpha_w * 10^(-8) * area.pop[size.pos,x]^(beta_w)
+      })
     }
     ###########
     
@@ -306,14 +347,24 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci = 5, num.alleles = 
     p = rep(0,S)
     who = which(area.pop[pheno.pos,]!=0)
     empty_b = length(which(area.pop[pheno.pos,]==0))
+    al_dead = which(area.pop[pheno.pos,]==0)
     p[who] = runif(length(p[who]))
     r_h = 1 - (exp(-mort_r_harv_r[i]))
     dead <- which(p<r_h)   #### since the p of absent columns are also empty, they are always "dead"
     if (length(dead) > 0) {
-      area.pop[,dead] <- 0 ##remove who dies, ie all columns gets 0
-    pheno[dead] <- 0 }  #phenotypes of the dead (thus empty cols) are 0
+      area.pop[pheno.pos,dead] <- 0 ##remove who dies, ie all columns gets 0
+    pheno[dead] <- 0   #phenotypes of the dead (thus empty cols) are 0
     empty_a = length(which(area.pop[pheno.pos,]==0))
     harvest[i] = empty_a - empty_b
+    tot_dead = which(area.pop[pheno.pos,]==0)
+    harv_dead = tot_dead[which(!tot_dead %in% al_dead)]
+    if (length(harv_dead) > 0) {
+    harvest_mean_size[i] = mean(area.pop[size.pos,harv_dead], na.rm = T)
+    harvest_total_weight[i] = sum(area.pop[weight.pos,harv_dead], na.rm = T)
+    harvest_mean_age[i] = mean(area.pop[age.pos,harv_dead], na.rm = T)
+    }
+  #  area.pop[,dead] <- 0
+    }
     ####
     
     vettad[i] = length(area.pop[pheno.pos,(area.pop[pheno.pos,]!=0 & area.pop[age.pos,]>=2)]) # populations size in the ocean post-natural mortality and post-harvest
@@ -364,7 +415,10 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci = 5, num.alleles = 
 
     # print(recruit)
     
-    escapement[i] = stock  # stock = escapement = mature fish 
+    escapement_real[i] = stock  # stock = escapement = mature fish (real) 
+    
+    # observed escapement comes from an log-normal observation model log(Et)∼Normal(log(St),rs)
+    escapement_obs[i] = exp(rnorm(n = 1, mean = log(escapement_real[i] + 1), sd = sd_e)) 
 
     test.pop[[i]] = area.pop  # save area.pop matrix, mostly for testing
     
@@ -412,7 +466,9 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci = 5, num.alleles = 
       ######### begin loop for reproductors ###########
       
       
-      for(rr in 1:ncol(repro.matrix)) {   #begin loop for of reproduction, go on for all the couples
+       
+        
+        for(rr in 1:ncol(repro.matrix)) {   #begin loop for of reproduction, go on for all the couples
         
         nsonscouple <- sons_rel[rr]   ### this is the number of newborns for a couple, 
         #it is a deviate from a poisson distribution with sons.mean mean and variance
@@ -483,10 +539,18 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci = 5, num.alleles = 
           
           cosons <- length(matsons[1,matsons[1,]!=100])      
           
-        }  # close if  for couples with at least one offspring
-      }   #close loop for reproduction in one sector
+        
+          
+          }  # close if  for couples with at least one offspring
       
-    } ### close for if (length(reproductor) >1)
+        
+        
+        }   #close loop for reproduction in one sector
+      
+    
+        } ### close for if (length(reproductor) >1)
+      
+      
     
     area.pop[,reproductor] = 0  ## all mature fish die (semelparity). reproductors is a vector of columns in the area.pop matrix
     
@@ -547,26 +611,6 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci = 5, num.alleles = 
         sons.for.couple = rep(0,length(pheno_parents_unique))
         
         
-        
-        # for (hh in 1:length(pheno_parents_unique)) {
-        #   off.mean[hh] = mean(vettpheno[pheno_parents == pheno_parents_unique[hh]]) 
-        # 
-        # sons.for.couple[hh] = min(number.of.sons[pheno_parents == pheno_parents_unique[hh]])
-        # 
-        # 
-        # if (i==50) {
-        #   
-        #   check.parents  = rbind(gene.from.parents,matsons)
-        #   
-        #   
-        # }
-        # 
-        # 
-        # }
-        
-        
-      
-        
         num.sons.check[1,i] = 1   ##this tells me that there were more empty spots than offspring (when 0 is more offspring than spots)
         num.sons.check[2,i] = length(vettpheno) ##this tells me how many offspring were introduced
         #herit.coef[i] = summary(lm(vettpheno  ~ pheno_parents))$coef[2]
@@ -617,6 +661,24 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci = 5, num.alleles = 
       
     }
     
+
+    ### assign vB's parameters to newborns for growth ####
+    
+   
+    if(length(empty) > 0) {
+     area.pop[linf.pos,empty] = rnorm(n = length(empty), mean = L_inf, sd = L_inf/3)
+    area.pop[k.pos,empty] = rnorm(n = length(empty), mean = k_vb, sd = k_vb/3)
+    area.pop[t0.pos,empty] = rnorm(n = length(empty), mean = t0_vb, sd = -t0_vb/3)
+    }
+    
+    ####    
+    
+    
+    
+    
+    
+    
+    
     
     ####here I compute the mean and the variance of the new generation  phenotypes####
     if (i>1 & sons==1 & length(empty)>0) {
@@ -659,7 +721,7 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci = 5, num.alleles = 
   line.lwd = 1.2
   size.label.x = 18
   size.text.x = 14
-  size.point = 4
+  size.point = 2
   size.label.y = 18
   size.text.y = 14
   size.legend.text = 15
@@ -695,26 +757,38 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci = 5, num.alleles = 
   
 ## create the data.frame
   
-  pop_df = data.frame(abund = c(vettad[1:year],escapement[1:year],harvest[1:year]), type = rep(c("ocean","escap","harvest"),each = year), year = 1:year) %>%
+  pop_df = data.frame(abund = c(vettad[1:year],escapement_obs[1:year],escapement_real[1:year],harvest[1:year], addgenvar[1:year]), 
+                      type = rep(c("ocean","escap_obs","escap_real","harvest","pheno_var"),each = year), year = 1:year) %>%
     filter(.,year>=10)
   
   
   if (year > 10) {
-  pop_gg = ggplot(pop_df, aes(x = year, y = abund, group = type, shape = type, linetype = type)) +
+  pop_gg = ggplot(dplyr::filter(pop_df, type %in% c("ocean","escap_obs","escap_real","harvest")), aes(x = year, y = abund, group = type, shape = type, linetype = type)) +
+    geom_point(alpha = 0.4, size = size.point) +
+    geom_line() +
+    theme.pop +
+    guides(size = guide_legend(override.aes = list(alpha = 0.2))) +
+    scale_y_continuous(limits = c(0,(max(pop_df$abund) + max(pop_df$abund)*0.1))) +
+    scale_x_continuous(limits = c(0,year+2)) +
+    labs(y = "#") +
+    labs(x = "Year") 
+    
+  pheno_gg = ggplot(dplyr::filter(pop_df, type == "pheno_var"), aes(x = year, y = abund)) +
     geom_point(alpha = 0.4) +
     geom_line() +
     theme.pop +
     guides(size = guide_legend(override.aes = list(alpha = 0.2))) +
-    scale_y_continuous(limits = c(0,(max(pop_df$abund) + 1000))) +
+    scale_y_continuous() +
     scale_x_continuous(limits = c(0,year+2)) +
     labs(y = "#") +
-    labs(x = "Year") } else {pop_gg = "Not enough simulation years for plot (must be > 10)"} 
+    labs(x = "Year") 
+  
+  } else {
+    pop_gg = "Not enough simulation years for plot (must be > 10)"
+    pheno_gg = "Not enough simulation years for plot (must be > 10)"} 
   
   
-  ### change all.freq100 to data.frame #####
-
-  
-  
+  ### change all.freq100 to data.frame ####
     
   all.freq100 = as.data.frame(all.freq100)
   steps = c(1,seq(0,iter,50)[-1])
@@ -729,9 +803,23 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci = 5, num.alleles = 
     
     
   }
+  
   ### Gene 0 is the mutant alleles
   
   all.freq100 = arrange(all.freq100, Gene)
+  
+  
+  ### For the exticnt populations, I want only the vectors up to year of exinction ####
+  
+  harvest_mean_size = harvest_mean_size[1:year]
+  harvest_total_weight = harvest_total_weight[1:year]
+  harvest_mean_age = harvest_mean_age[1:year]
+  escapement_obs = escapement_obs[1:year]
+  escapement_real = escapement_real[1:year]
+  harvest = harvest[1:year]
+  phenomean = phenomean[1:year]
+  test.pop = test.pop[1:year]
+  
   
   ris.list = list("extinct"=extinct, 
                   "yearextinct" = i-1,
@@ -748,8 +836,12 @@ pp_sim.f <- function (S = 1000,N = 10000,iter = 150,num.loci = 5, num.alleles = 
                   "heter.sd.year" = heter_vect_sd_year,
                   "test.pop" = test.pop,
                   "escap" = escapement,
-                  "plot" = pop_gg,
+                  "plot_pop" = pop_gg,
+                  "plot_pheno" = pheno_gg,
                   "harvest" = harvest,
+                  "harvest_weight" = harvest_total_weight,
+                  "harvest_size" = harvest_mean_size,
+                  "harvest_age" = harvest_mean_age,
                   "pop" = pop_df)
   
   return(ris.list)

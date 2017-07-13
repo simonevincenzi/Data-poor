@@ -43,8 +43,9 @@ theme.stock =  theme(plot.title = element_text(lineheight=.8, face="bold", size 
 
 stock = seq(from = 0, to = 5000, by = 50)
 sons = rep(0, length(stock))
-a = 20
-Rp = 20000  
+
+a = 10
+Rp = 500 
 
 for (i in 1:length(stock)) {
 sons[i] = a*stock[i]*exp(-a*(stock[i]/(Rp*exp(1))))
@@ -55,11 +56,14 @@ sons[i] = a*stock[i]*exp(-a*(stock[i]/(Rp*exp(1))))
 
 ## create the data.frame
 
-stock_df = data.frame(stock = stock, sons = sons)
+stock_df = tibble(stock = stock, sons = sons)
+
+stock_df$stock[which(stock_df$sons == max(stock_df$sons))]
 
 
 stock_gg = ggplot(stock_df, aes(x = stock, y = sons)) +
   geom_point() +
+  geom_line() +
   theme.stock +
   guides(size = guide_legend(override.aes = list(alpha = 0.2))) +
   scale_y_continuous(limits = c(0,(max(stock_df$sons) + max(stock_df$sons)/10))) +
